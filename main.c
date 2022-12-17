@@ -345,7 +345,7 @@ int main(void) {
 
 
         // Player got more than 21, player lose
-        if (get_hand_total(hand_player) > 21) {
+        if ((get_hand_total(hand_player) > 21) || (get_hand_total(hand_player_split)) > 21) {
             puts("U got more than 21, u lose");
             exit(-1);
         }
