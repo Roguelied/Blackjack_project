@@ -6,16 +6,14 @@
 
 /*
 Notes
-    pop_index(node, 0) not working help                                                 Still issue
-    Not only one game, need a while (for stop game) (offer a stop and exit casino)       Done
+    pop_index(node, 0) not working help                                               Still issue
+    Not only one game, need a while loop (offer a stop and exit casino)                  Done
     Fix second hand > 21                                                                 Done
     Fix negative bets                                                                    Done
 
-    Save logs to file:                                                                   Done
-        Game №1, player moves, who won/lose etc.
-        total_games_value + income (negative/positive)
-
-    Combination card_return() + push() return card to the top of the deck then add a new card to hand from tail of list
+    Save logs to file:                                                                Almost done
+        Game №1, player moves, who won/lose etc.                                         Done
+        total_games_value + income (negative/positive)                                  Undone
 */
 
 
@@ -41,6 +39,7 @@ int get_hand_total(node *head);
 void print_list(node *head);
 void to_lower(char *string);
 int len_list(node *head);
+void card_return(node **player, node **player_split, node **dealer, node **deck, int split_flag);
 void show_cards(node *p1, node *p2, node *d, int split_flag);
 void delete_list(node** head);
 
@@ -154,6 +153,7 @@ void print_list(node *head) {
     printf("\n");
 }
 
+
 void print_list_to_logs(node *head, FILE *game_logs) {
     node* current = head;
     while (current != NULL) {
@@ -209,7 +209,6 @@ int get_hand_total(node *head) {
 }
 
 
-// Can be optimized somehow (
 void show_cards(node *p1, node *p2, node *d, int split_flag) {
     if (split_flag == 1) {
         printf("Dealer hand: (%d) : ", get_hand_total(d)); print_list(d);
@@ -222,7 +221,7 @@ void show_cards(node *p1, node *p2, node *d, int split_flag) {
     }
 }
 
-//Костыль пиздец
+
 void card_return(node **player, node **player_split, node **dealer, node **deck, int split_flag) {
     //Dealer return
     if (len_list(*dealer) == 1) {
@@ -318,8 +317,7 @@ int main(void) {
     DOUBLE              x2 bet, +1 card, player while break
     SURRENDER           game over (2 cards, bet/2)             */
 
-
-    //move str    answer str   split hands flag      log value          flag
+    
     char move[9], answer[3];
     int split_flag = 0, total_games_value = 0, stop_flag = 0, wins_value = 0, loses_value = 0, pushes_value = 0;
     for (;;) {
