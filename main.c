@@ -5,15 +5,11 @@
 #include <ctype.h> //tolower func
 
 /*
-Notes
     pop_index(node, 0) not working help                                               Still issue
-    Not only one game, need a while loop (offer a stop and exit casino)                  Done
+    Not only one game, need a while (for stop game) (offer a stop and exit casino)       Done
     Fix second hand > 21                                                                 Done
     Fix negative bets                                                                    Done
-
-    Save logs to file:                                                                Almost done
-        Game №1, player moves, who won/lose etc.                                         Done
-        total_games_value + income (negative/positive)                                  Undone
+    Save logs to file:                                                                   Done
 */
 
 
@@ -153,7 +149,6 @@ void print_list(node *head) {
     printf("\n");
 }
 
-
 void print_list_to_logs(node *head, FILE *game_logs) {
     node* current = head;
     while (current != NULL) {
@@ -209,6 +204,7 @@ int get_hand_total(node *head) {
 }
 
 
+// Can be optimized somehow (
 void show_cards(node *p1, node *p2, node *d, int split_flag) {
     if (split_flag == 1) {
         printf("Dealer hand: (%d) : ", get_hand_total(d)); print_list(d);
@@ -281,12 +277,12 @@ int main(void) {
 
     FILE *game_logs = fopen("logs.txt", "w");
     fprintf(game_logs, "Logs initialization\n\n");
-    int bet;
-    puts("Enter your bet:");
+    int pool, bet = 0;
+    puts("Enter your pool of money:");
     for (;;) {
-        scanf("%d", &bet);
-        if (bet <= 0) {
-            printf("Invalid bet, value should be > 0\n");
+        scanf("%d", &pool);
+        if (pool <= 0) {
+            printf("Invalid value, should be > 0\n");
         } else {
             break;
         }
@@ -317,7 +313,6 @@ int main(void) {
     DOUBLE              x2 bet, +1 card, player while break
     SURRENDER           game over (2 cards, bet/2)             */
 
-    
     char move[9], answer[3];
     int split_flag = 0, total_games_value = 0, stop_flag = 0, wins_value = 0, loses_value = 0, pushes_value = 0;
     for (;;) {
@@ -325,6 +320,23 @@ int main(void) {
         scanf("%s", &answer);
         to_lower(answer);
         if (strcmp(answer, "yes") == 0) {
+            if (bet == 0) {
+                if (pool == 0) {
+                    puts("U have no money, get the fuck out my casino!");
+                    exit(-100);
+                }
+                printf("Enter your bet (Should be < than your pool)\n");
+                for (;;) {
+                    scanf("%d", &bet);
+                    if (bet > pool || bet <= 0) {
+                        puts("Incorrect value, try again");
+                        continue;
+                    } else break;
+                }
+                pool -= bet;
+                fprintf(game_logs, "POOL = %d\nBET = %d\n", pool, bet);
+            }
+            printf("Pool - %d\n", pool);
             total_games_value++;
             // +1 dealer card, +2 player card every game
             push(&hand_dealer, pop(&deck));
@@ -338,7 +350,9 @@ int main(void) {
 
             show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
             for (;;) {
-
+                if (get_hand_total(hand_player) == 21) {
+                    break;
+                }
                 puts("Hit, split, double, surrender, stand?");
                 scanf("%s", move);
                 to_lower(move);
@@ -388,6 +402,7 @@ int main(void) {
 
                     // DOUBLE
                 else if (strcmp(move, "double") == 0) {
+                    pool -= bet;
                     if (split_flag == 1) {
                         puts("Choose on which hand u want to double (Enter 1 for the first, 2 for the second)");
                         int split_value = 0;
@@ -436,10 +451,10 @@ int main(void) {
                         continue;
                     }
                     // Player gets back half of his bet, game over
-                    bet /= 2;
+                    pool += bet / 2; bet /= 2;
                     fprintf(game_logs, "SURRENDER: Half of bet is saved - %d\n", bet);
                     printf("Surrender, half of bet is saved - %d", bet);
-
+                    bet = 0;
                     stop_flag = 1;
                     break;
                 }
@@ -470,11 +485,11 @@ int main(void) {
                 // If player takes his Blackjack:
                 if ((split_flag == 0 && get_hand_total(hand_player) == 21) ||
                 (split_flag == 1 && (get_hand_total(hand_player) == 21 || get_hand_total(hand_player_split) == 21))) {
-                    bet *= 1.5; wins_value++;
+                    pool += bet * 2; bet *= 1.5; wins_value++;
                     printf("Blackjack!, take yours %d", bet);
-                    fprintf(game_logs, "PLAYER BLACKJACK: Player win %d\n\n", bet);
+                    fprintf(game_logs, "PLAYER BLACKJACK1: Player win %d\n\n", bet);
                     card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
-                    stop_flag = 1;
+                    stop_flag = 1; bet = 0;
                     break;
                 }
 
@@ -494,13 +509,33 @@ int main(void) {
                 continue;
             }
 
+            // If player takes his Blackjack:
+            if ((split_flag == 0 && get_hand_total(hand_player) == 21) ||
+                (split_flag == 1 && (get_hand_total(hand_player) == 21 || get_hand_total(hand_player_split) == 21))) {
+                pool += bet * 2; bet *= 1.5; wins_value++;
+                printf("Blackjack!, take yours %d", bet);
+                fprintf(game_logs, "PLAYER BLACKJACK2: Player win %d\n\n", bet);
+                card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                bet = 0;
+                continue;
+            }
+
+
+            // Player got more than 21, player lose
+            if ((get_hand_total(hand_player) > 21) || (get_hand_total(hand_player_split)) > 21) {
+                printf("Player got more than 21, player lose\n");
+                fprintf(game_logs, "PLAYER BUST: Player lose his bet\n\n");
+                card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                bet = 0; loses_value++;
+                continue;
+            }
 
             // When all player moves is done, dealer gets his cards
             while (get_hand_total(hand_dealer) < 16) {
                 push(&hand_dealer, pop(&deck));
             }
 
-
+            puts("");
             show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
             fprintf(game_logs, "Dealer getting his cards:\n");
             fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
@@ -510,7 +545,7 @@ int main(void) {
             } else {
                 fprintf(game_logs, "Player hand (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
             }
-            fprintf(game_logs, "\n");
+            fprintf(game_logs, "\n"); puts("");
 
 
             // Int values init for reduce function calls later
@@ -524,11 +559,11 @@ int main(void) {
             if (hand_dealer_sum == 21) {
                 if ((split_flag == 1 && (hand_player_sum == 21 || hand_player_split_sum == 21)) ||
                     (split_flag == 0 && hand_player_sum == 21)) {
-                    bet *= 1.5;
+                    pool += bet * 1.5; bet *= 1.5;
                     printf("Blackjack: Dealer = Player, take yours %d\n", bet);
                     fprintf(game_logs, "BLACKJACK: PLAYER == DEALER, Player wins %d\n\n", bet);
-                    card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
-                    split_flag = 0; wins_value++;
+                    card_return(&hand_player,&hand_player_split, &hand_dealer, &deck, split_flag);
+                    split_flag = 0; wins_value++; bet = 0;
                     continue;
                 } else {
                     bet = 0;
@@ -542,9 +577,10 @@ int main(void) {
 
             //If dealer got  more than 21 u win
             if (hand_dealer_sum > 21) {
-                bet *= 2;
+                pool += bet * 2; bet *= 2;
                 printf("Dealer got more than 21, u win %d\n", bet);
                 fprintf(game_logs, "DEALER > 21, Player wins - %d\n\n", bet);
+                bet = 0;
                 card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
                 split_flag = 0; wins_value++;
                 continue;
@@ -553,9 +589,10 @@ int main(void) {
             // If u have more than dealer
             if ((split_flag == 0 && (hand_player_sum > hand_dealer_sum)) ||
                 (split_flag == 1 && (hand_player_sum > hand_dealer_sum || hand_player_split_sum > hand_dealer_sum))) {
-                bet *= 2;
+                pool += bet * 2; bet *= 2;
                 printf("U got more than dealer, u win %d\n", bet);
                 fprintf(game_logs, "PLAYER > DEALER: Player wins %d\n\n", bet);
+                bet = 0;
                 card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
                 split_flag = 0; wins_value++;
                 continue;
@@ -566,7 +603,9 @@ int main(void) {
                 (split_flag == 1 &&
                  ((hand_dealer_sum == hand_player_sum) || (hand_dealer_sum == hand_player_split_sum)))) {
                 puts("Push case, nobody wins");
+                pool += bet;
                 fprintf(game_logs, "PUSH: Player save his bet %d\n\n", bet);
+                bet = 0;
                 card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
                 split_flag = 0; pushes_value++;
                 continue;
@@ -578,7 +617,7 @@ int main(void) {
                  ((hand_dealer_sum > hand_player_sum) || (hand_dealer_sum > hand_player_split_sum)))) {
                 bet = 0;
                 fprintf(game_logs, "PLAYER < DEALER: Player loses\n\n");
-                puts("Dealer have more than player, player lose"); loses_value++;
+                puts("Dealer have more than player, player lose");
                 card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
                 split_flag = 0; loses_value++;
                 continue;
@@ -588,6 +627,7 @@ int main(void) {
             fprintf(game_logs, "WINS: %d\n", wins_value);
             fprintf(game_logs, "LOSES: %d\n", loses_value);
             fprintf(game_logs, "PUSHES: %d\n", pushes_value);
+            fprintf(game_logs, "REMAINING POOL: %d\n", pool);
             fclose(game_logs);
             exit(0);
         } else {
