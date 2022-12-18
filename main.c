@@ -5,6 +5,7 @@
 #include <ctype.h> //tolower func
 
 /*
+    Ace is always 11
     pop_index(node, 0) not working help                                               Still issue
     Not only one game, need a while (for stop game) (offer a stop and exit casino)       Done
     Fix second hand > 21                                                                 Done
@@ -274,7 +275,6 @@ void delete_list(node** head) {
 
 
 int main(void) {
-
     FILE *game_logs = fopen("logs.txt", "w");
     fprintf(game_logs, "Logs initialization\n\n");
     int pool, bet = 0;
@@ -302,16 +302,6 @@ int main(void) {
 
     // Split hand initialize
     node *hand_player_split = NULL;
-
-    /*                  Game logic starts
-    Ace is always 11
-    No insurance
-    No soft 17, means if calc(dealer hand) < 16 then + 1 card
-    HIT                 push(&hand, pop(&deck));
-    STAND               Player while break
-    SPLIT               Get another player hand, split logic
-    DOUBLE              x2 bet, +1 card, player while break
-    SURRENDER           game over (2 cards, bet/2)             */
 
     char move[9], answer[3];
     int split_flag = 0, total_games_value = 0, stop_flag = 0, wins_value = 0, loses_value = 0, pushes_value = 0;
