@@ -6,7 +6,16 @@
 
 /*
 Notes
-    pop_index(node, 0) not working help
+    pop_index(node, 0) not working help                                                 Still issue
+    Not only one game, need a while (for stop game) (offer a stop and exit casino)       Done
+    Fix second hand > 21                                                                 Done
+    Fix negative bets                                                                    Done
+
+    Save logs to file:                                                                   Done
+        Game №1, player moves, who won/lose etc.
+        total_games_value + income (negative/positive)
+
+    Combination card_return() + push() return card to the top of the deck then add a new card to hand from tail of list
 */
 
 
@@ -21,7 +30,7 @@ typedef struct node {
 } node;
 
 
-// Function list for fast navigating 
+// Function list for fast navigating
 void push(node **head, card data);
 void index_push(node *head, card data, int index);
 card pop(node **head);
@@ -33,10 +42,13 @@ void print_list(node *head);
 void to_lower(char *string);
 int len_list(node *head);
 void show_cards(node *p1, node *p2, node *d, int split_flag);
+void delete_list(node** head);
 
 
 
 void push(node **head, card data) {
+    //
+
     // Create a new node
     node *new_node = malloc(sizeof(node));
     new_node -> card = data;
@@ -142,9 +154,18 @@ void print_list(node *head) {
     printf("\n");
 }
 
+void print_list_to_logs(node *head, FILE *game_logs) {
+    node* current = head;
+    while (current != NULL) {
+        fprintf(game_logs, "%d[%d] ", current -> card.num, current -> card.suit);
+        current = current -> next;
+    }
+    fprintf(game_logs, "\n");
+}
+
 
 void deck_init(node **head) {
-    // 3 suits, 10 nums + (3 pics = 10) + 1 ace cards
+    // 4 suits * 10 nums + (3 pics = 10) + 1 ace cards
     for (int i = 3; i < 7; i++) {
         for (int j = 11; j > 1; j--) {
             card card;
@@ -187,30 +208,91 @@ int get_hand_total(node *head) {
     return sum;
 }
 
+
 // Can be optimized somehow (
 void show_cards(node *p1, node *p2, node *d, int split_flag) {
     if (split_flag == 1) {
-        printf("Dealer hand: (%d) : ", get_hand_total(d));
-        print_list(d);
-        printf("First player hand: (%d) : ", get_hand_total(p1));
-        print_list(p1);
-        printf("Second player hand: (%d) : ", get_hand_total(p2));
-        print_list(p2);
+        printf("Dealer hand: (%d) : ", get_hand_total(d)); print_list(d);
+        printf("First player hand: (%d) : ", get_hand_total(p1)); print_list(p1);
+        printf("Second player hand: (%d) : ", get_hand_total(p2)); print_list(p2);
 
     } else {
-        printf("Dealer hand (%d) : ", get_hand_total(d));
-        print_list(d);
-        printf("Player hand (%d) : ", get_hand_total(p1));
-        print_list(p1);
+        printf("Dealer hand (%d) : ", get_hand_total(d)); print_list(d);
+        printf("Player hand (%d) : ", get_hand_total(p1)); print_list(p1);
+    }
+}
+
+//Костыль пиздец
+void card_return(node **player, node **player_split, node **dealer, node **deck, int split_flag) {
+    //Dealer return
+    if (len_list(*dealer) == 1) {
+        push(deck, (**dealer).card);
+        delete_list(dealer);
+    } else {
+        for (int i = 0; i < len_list(*dealer); i++) {
+            push(deck, pop(dealer));
+        }
+        push(deck, (**dealer).card);
+        delete_list(dealer);
+    }
+    //Player return
+    if (len_list(*player) == 1) {
+        push(deck, (**player).card);
+        delete_list(player);
+    } else {
+        for (int i = 0; i < len_list(*player); i++) {
+            push(deck, pop(player));
+        }
+        push(deck, (**player).card);
+        delete_list(player);
+    }
+    //Player split return case
+    if (split_flag == 1) {
+        if (len_list(*player_split) == 1) {
+            push(deck, (**player_split).card);
+            delete_list(player_split);
+        } else {
+            for (int i = 0; i < len_list(*player_split); i++) {
+                push(deck, pop(player_split));
+            }
+            push(deck, (**player_split).card);
+            delete_list(player_split);
+        }
     }
 }
 
 
+void delete_list(node** head) {
+    /* deref head_ref to get the real head */
+    node* current = *head;
+    node* next;
+
+    while (current != NULL)
+    {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
+    *head = NULL;
+}
+
+
 int main(void) {
-    puts("Enter your bet:");
+
+    FILE *game_logs = fopen("logs.txt", "w");
+    fprintf(game_logs, "Logs initialization\n\n");
     int bet;
-    scanf("%d", &bet);
-    fflush (stdin);
+    puts("Enter your bet:");
+    for (;;) {
+        scanf("%d", &bet);
+        if (bet <= 0) {
+            printf("Invalid bet, value should be > 0\n");
+        } else {
+            break;
+        }
+    }
+    fflush(stdin);
 
     //Deck initialize, shuffle, print
     node *deck = NULL;
@@ -219,186 +301,299 @@ int main(void) {
 
     //Dealer hand initialize
     node *hand_dealer = NULL;
-    push(&hand_dealer, pop(&deck));
-    puts("Dealer hand"); print_list(hand_dealer);
 
     //Player hand initialize
     node *hand_player = NULL;
-    push(&hand_player, pop(&deck));
-    push(&hand_player, pop(&deck));
-    puts("Player hand"); print_list(hand_player);
 
     // Split hand initialize
     node *hand_player_split = NULL;
 
     /*                  Game logic starts
     Ace is always 11
-    Exit code 1 - Player win
-    Exit code -1 - Dealer win
-    Exit code 0 - Push case, nobody wins
     No insurance
     No soft 17, means if calc(dealer hand) < 16 then + 1 card
-    HIT              push(&hand, pop(&deck));
-    STAND            Player while break
-    SPLIT            Get another player hand, split logic
-    DOUBLE           x2 bet, +1 card, player while break
-    SURRENDER        game over (2 cards, bet/2)             */
+    HIT                 push(&hand, pop(&deck));
+    STAND               Player while break
+    SPLIT               Get another player hand, split logic
+    DOUBLE              x2 bet, +1 card, player while break
+    SURRENDER           game over (2 cards, bet/2)             */
 
-    char move[9]; int split_flag = 0;
-    while (strcmp(move, "stand") != 0 || get_hand_total(hand_player) < 21) {
 
-        puts("Hit, split, double, surrender, stand?");
+    //move str    answer str   split hands flag      log value          flag
+    char move[9], answer[3];
+    int split_flag = 0, total_games_value = 0, stop_flag = 0, wins_value = 0, loses_value = 0, pushes_value = 0;
+    for (;;) {
+        puts("Want to play? Enter yes/no");
+        scanf("%s", &answer);
+        to_lower(answer);
+        if (strcmp(answer, "yes") == 0) {
+            total_games_value++;
+            // +1 dealer card, +2 player card every game
+            push(&hand_dealer, pop(&deck));
+            push(&hand_player, pop(&deck));
+            push(&hand_player, pop(&deck));
+            fprintf(game_logs, "Game №%d\n", total_games_value);
+            fprintf(game_logs, "New game starts, cards initialized:\nDealer hand (%d) : ", get_hand_total(hand_dealer));
+            print_list_to_logs(hand_dealer, game_logs);
+            fprintf(game_logs, "Player hand (%d) : ", get_hand_total(hand_player));
+            print_list_to_logs(hand_player, game_logs); fprintf(game_logs, "\n");
 
-        scanf("%s", move); to_lower(move);
+            show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+            for (;;) {
 
-        // HIT
-        if (strcmp(move, "hit") == 0) {
+                puts("Hit, split, double, surrender, stand?");
+                scanf("%s", move);
+                to_lower(move);
+                // HIT
+                if (strcmp(move, "hit") == 0) {
 
-            // If player have 2 hands case
+                    // If player have 2 hands case
+                    if (split_flag == 1) {
+                        puts("Choose on which hand u want to hit (Enter 1 for the first, 2 for the second)");
+                        int split_value = 0;
+                        scanf("%d", &split_value);
+                        if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
+
+                        // Choose which hand
+                        if (split_value == 1) {
+                            push(&hand_player, pop(&deck));
+                        } else if (split_value == 2) {
+                            push(&hand_player_split, pop(&deck));
+                        }
+                        fprintf(game_logs, "SPLIT HIT: Hand - %d, New card - %d[%d]\n", split_value, hand_player->card.num, hand_player->card.suit);
+                        fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
+                        fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                        fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
+                        fprintf(game_logs, "\n");
+                        show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+
+                    } else {
+                        // Just get a new card
+                        push(&hand_player, pop(&deck));
+                        puts("U got a new card");
+                        show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+                        fprintf(game_logs, "HIT: New card - %d[%d]\n", hand_player->card.num, hand_player->card.suit);
+                        fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
+                        fprintf(game_logs, "Player hand (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                        fprintf(game_logs, "\n");
+                    }
+                }
+
+
+                    //STAND
+                else if (strcmp(move, "stand") == 0) {
+                    puts("Player stand, dealers move");
+                    fprintf(game_logs, "STAND. Dealers move:\n");
+                    break;
+                }
+
+
+                    // DOUBLE
+                else if (strcmp(move, "double") == 0) {
+                    if (split_flag == 1) {
+                        puts("Choose on which hand u want to double (Enter 1 for the first, 2 for the second)");
+                        int split_value = 0;
+                        scanf("%d", &split_value);
+                        if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
+
+                        bet *= 2;
+                        // Choose which hand
+                        if (split_value == 1) {
+                            push(&hand_player, pop(&deck));
+                            fprintf(game_logs, "DOUBLE: New card - %d[%d]\n", hand_player->card.num, hand_player->card.suit);
+                            fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
+                            fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                            fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
+                            fprintf(game_logs, "\n");
+                            break;
+                        } else if (split_value == 2) {
+                            push(&hand_player_split, pop(&deck));
+                            fprintf(game_logs, "DOUBLE: New card - %d[%d]\n", hand_player->card.num, hand_player->card.suit);
+                            fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
+                            fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                            fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
+                            fprintf(game_logs, "\n");
+                            break;
+                        }
+                        show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+                    } else if (split_flag == 0) {
+                        bet *= 2;
+                        printf("Player take a new card, bet is doubled - %d, no more player moves\n", bet);
+                        push(&hand_player, pop(&deck));
+                        show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+                        fprintf(game_logs, "DOUBLE: New card - %d[%d]\n", hand_player -> card.num, hand_player -> card.suit);
+                        fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
+                        fprintf(game_logs, "Player hand (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                        fprintf(game_logs, "\n");
+                        break;
+                    }
+                }
+
+
+                    //SURRENDER
+                else if (strcmp(move, "surrender") == 0) {
+                    // If player have more than 2 cards case
+                    if (split_flag != 0 || len_list(hand_player) > 2) {
+                        puts("cant surrender, invalid case (needs value cards <= 2 and non split case)");
+                        continue;
+                    }
+                    // Player gets back half of his bet, game over
+                    bet /= 2;
+                    fprintf(game_logs, "SURRENDER: Half of bet is saved - %d\n", bet);
+                    printf("Surrender, half of bet is saved - %d", bet);
+
+                    stop_flag = 1;
+                    break;
+                }
+
+
+                    // SPLIT
+                else if (strcmp(move, "split") == 0) {
+                    // If player doesn't have 2 cards exactly
+                    if (len_list(hand_player) != 2) {
+                        puts("cant split, invalid value of cards (needs 2)");
+                        continue;
+                    }
+                    // Second player hand get one card from main player hand
+                    push(&hand_player_split, pop(&hand_player));
+                    fprintf(game_logs, "SPLIT: Card has been moved\n");
+                    fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
+                    fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                    fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
+                    fprintf(game_logs, "\n");
+                    split_flag = 1;
+                    show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+                } else {
+                    puts("wtf are u typing here, jesus, its blackjack we are dont printing tests here");
+                }
+
+
+
+                // If player takes his Blackjack:
+                if ((split_flag == 0 && get_hand_total(hand_player) == 21) ||
+                (split_flag == 1 && (get_hand_total(hand_player) == 21 || get_hand_total(hand_player_split) == 21))) {
+                    bet *= 1.5; wins_value++;
+                    printf("Blackjack!, take yours %d", bet);
+                    fprintf(game_logs, "PLAYER BLACKJACK: Player win %d\n\n", bet);
+                    card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                    stop_flag = 1;
+                    break;
+                }
+
+
+                // Player got more than 21, player lose
+                if ((get_hand_total(hand_player) > 21) || (get_hand_total(hand_player_split)) > 21) {
+                    printf("Player got more than 21, player lose\n");
+                    fprintf(game_logs, "PLAYER BUST: Player lose his bet\n\n");
+                    card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                    bet = 0; loses_value++;
+                    stop_flag = 1;
+                    break;
+                }
+            }
+            if (stop_flag == 1) {
+                split_flag = 0;
+                continue;
+            }
+
+
+            // When all player moves is done, dealer gets his cards
+            while (get_hand_total(hand_dealer) < 16) {
+                push(&hand_dealer, pop(&deck));
+            }
+
+
+            show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+            fprintf(game_logs, "Dealer getting his cards:\n");
+            fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
             if (split_flag == 1) {
-                puts("Choose on which hand u want to hit (Enter 1 for the first, 2 for the second)");
-                int split_value = 0;
-                scanf("%d", &split_value);
-                if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
-
-                // Choose which hand
-                if (split_value == 1) {
-                    push(&hand_player, pop(&deck));
-                } else if (split_value == 2) {
-                    push(&hand_player_split, pop(&deck));
-                }
-                show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
-
+                fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
+                fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
             } else {
-                // Just get a new card
-                push(&hand_player, pop(&deck));
-                puts("U got a new card");
-                show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
+                fprintf(game_logs, "Player hand (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
             }
-        }
-        // DOUBLE
-        else if (strcmp(move, "double") == 0) {
-            if (split_flag ==1) {
-                puts("Choose on which hand u want to double (Enter 1 for the first, 2 for the second)");
-                int split_value = 0;
-                scanf("%d", &split_value);
-                if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
+            fprintf(game_logs, "\n");
 
-                bet *=2;
-                // Choose which hand
-                if (split_value == 1) {
-                    push(&hand_player, pop(&deck));
-                    break;
-                } else if (split_value == 2) {
-                    push(&hand_player_split, pop(&deck));
-                    break;
+
+            // Int values init for reduce function calls later
+            int hand_dealer_sum, hand_player_sum, hand_player_split_sum;
+            hand_dealer_sum = get_hand_total(hand_dealer);
+            hand_player_sum = get_hand_total(hand_player);
+            hand_player_split_sum = get_hand_total(hand_player_split);
+
+
+            //Dealer got blackjack, if u too - ure win, if not - u lose.
+            if (hand_dealer_sum == 21) {
+                if ((split_flag == 1 && (hand_player_sum == 21 || hand_player_split_sum == 21)) ||
+                    (split_flag == 0 && hand_player_sum == 21)) {
+                    bet *= 1.5;
+                    printf("Blackjack: Dealer = Player, take yours %d\n", bet);
+                    fprintf(game_logs, "BLACKJACK: PLAYER == DEALER, Player wins %d\n\n", bet);
+                    card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                    split_flag = 0; wins_value++;
+                    continue;
+                } else {
+                    bet = 0;
+                    puts("Dealer got Blackjack. Shit happens, ure lose");
+                    fprintf(game_logs, "BLACKJACK: DEALER, Player loses his bet\n\n");
+                    card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                    split_flag = 0; loses_value++;
+                    continue;
                 }
-                show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
-
             }
-            else if (split_flag == 0) {
+
+            //If dealer got  more than 21 u win
+            if (hand_dealer_sum > 21) {
                 bet *= 2;
-                printf("Player take a new card, bet is doubled - %d, no more player moves\n", bet);
-                push(&hand_player, pop(&deck));
-                show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
-                puts("");
-                break;
-            }
-        }
-        else if (strcmp(move, "surrender") == 0) {
-            // If player have more than 2 cards case
-            if (split_flag != 0 || len_list(hand_player) > 2) {
-                puts("cant surrender, invalid case (needs value cards <= 2 and non split case)");
+                printf("Dealer got more than 21, u win %d\n", bet);
+                fprintf(game_logs, "DEALER > 21, Player wins - %d\n\n", bet);
+                card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                split_flag = 0; wins_value++;
                 continue;
             }
-            // Player gets back half of his bet, game over
-            bet /= 2;
-            printf("Surrender, half of bet is saved - %d", bet);
-            exit(-1);
-        }
-        // SPLIT
-        else if (strcmp(move, "split") == 0) {
-            // If player have 2 cards exactly
-            if (len_list(hand_player) != 2) {
-                puts("cant split, invalid value of cards (needs 2)");
+
+            // If u have more than dealer
+            if ((split_flag == 0 && (hand_player_sum > hand_dealer_sum)) ||
+                (split_flag == 1 && (hand_player_sum > hand_dealer_sum || hand_player_split_sum > hand_dealer_sum))) {
+                bet *= 2;
+                printf("U got more than dealer, u win %d\n", bet);
+                fprintf(game_logs, "PLAYER > DEALER: Player wins %d\n\n", bet);
+                card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                split_flag = 0; wins_value++;
                 continue;
             }
-            // Second player hand get one card from main player hand
-            push(&hand_player_split, pop(&hand_player));
-            split_flag = 1;
-            show_cards(hand_player, hand_player_split, hand_dealer, split_flag); puts("");
-        }
-        else if (strcmp(move, "stand") == 0) {
-            puts("Player stand, dealers move");
-            break;
-        }
-        else {
-            puts("wtf are u typing here, jesus, its blackjack we are dont printing tests here");
-        }
 
+            // If dealer == Player  (Push case)
+            if ((split_flag == 0 && (hand_dealer_sum == hand_player_sum)) ||
+                (split_flag == 1 &&
+                 ((hand_dealer_sum == hand_player_sum) || (hand_dealer_sum == hand_player_split_sum)))) {
+                puts("Push case, nobody wins");
+                fprintf(game_logs, "PUSH: Player save his bet %d\n\n", bet);
+                card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                split_flag = 0; pushes_value++;
+                continue;
+            }
 
-        // If player takes his Blackjack:
-        if ((split_flag == 0 && get_hand_total(hand_player) == 21) || (split_flag == 1 && (get_hand_total(hand_player) == 21 || get_hand_total(hand_player_split) == 21))) {
-            printf("Blackjack!, take yours %d", bet * 1.5);
-            exit(1);
-        }
-
-
-        // Player got more than 21, player lose
-        if ((get_hand_total(hand_player) > 21) || (get_hand_total(hand_player_split)) > 21) {
-            puts("U got more than 21, u lose");
-            exit(-1);
-        }
-    }
-
-    // When all player moves is done, dealer gets his cards
-    while (get_hand_total(hand_dealer) < 16) {
-        push(&hand_dealer, pop(&deck));
-    }
-    
-  
-    // Int values init for reduce function calls later
-    show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
-    int hand_dealer_sum, hand_player_sum, hand_player_split_sum;
-    hand_dealer_sum = get_hand_total(hand_dealer);
-    hand_player_sum = get_hand_total(hand_player);
-    hand_player_split_sum = get_hand_total(hand_player_split);
-
-
-    //Dealer got blackjack, if u too - ure win, if not - u lose.
-    if (hand_dealer_sum == 21) {
-        if ((split_flag == 1 && (hand_player_sum == 21 || hand_player_split_sum == 21)) || (split_flag == 0 && hand_player_sum == 21)) {
-            printf("Dealer = Player, take yours %d", bet*1.5);
+            // If dealer have more than player
+            if ((split_flag == 0 && (hand_dealer_sum > hand_player_sum)) ||
+                (split_flag == 1 &&
+                 ((hand_dealer_sum > hand_player_sum) || (hand_dealer_sum > hand_player_split_sum)))) {
+                bet = 0;
+                fprintf(game_logs, "PLAYER < DEALER: Player loses\n\n");
+                puts("Dealer have more than player, player lose"); loses_value++;
+                card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                split_flag = 0; loses_value++;
+                continue;
+            }
+        } else if (strcmp(answer, "no") == 0) {
+            fprintf(game_logs, "\nTotal games played - %d\n", total_games_value);
+            fprintf(game_logs, "WINS: %d\n", wins_value);
+            fprintf(game_logs, "LOSES: %d\n", loses_value);
+            fprintf(game_logs, "PUSHES: %d\n", pushes_value);
+            fclose(game_logs);
+            exit(0);
         } else {
-            puts("Dealer got Blackjack. Shit happens, ure lose");
-            exit(-1);
+            printf("%s - invalid answer, try again\n", answer);
         }
-    }
-
-    //If dealer got  more than 21 u win
-    if (hand_dealer_sum > 21) {
-        printf("Dealer got more than 21, u win %d", bet*2);
-        exit(1);
-    }
-
-    // If u have more than dealer
-    if ((split_flag == 0 && (hand_player_sum > hand_dealer_sum)) ||
-    (split_flag == 1 && (hand_player_sum > hand_dealer_sum || hand_player_split_sum > hand_dealer_sum))) {
-        printf("U got more than dealer, u win %d", bet*2);
-        exit(1);
-    }
-
-    // If dealer == Player  (Push case)
-    if ((split_flag == 0 && (hand_dealer_sum == hand_player_sum)) ||
-        (split_flag == 1 && ((hand_dealer_sum == hand_player_sum) || (hand_dealer_sum == hand_player_split_sum)))) {
-        puts("Push case, nobody wins");
-        exit(0);
-    }
-
-    // If dealer have more than player
-    if ((split_flag == 0 && (hand_dealer_sum > hand_player_sum)) ||
-    (split_flag == 1 && ((hand_dealer_sum > hand_player_sum) || (hand_dealer_sum > hand_player_split_sum)))) {
-        puts("Dealer have more than player, player lose");
-        exit(-1);
     }
 }
