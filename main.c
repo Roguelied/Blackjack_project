@@ -392,6 +392,10 @@ int main(void) {
 
                     // DOUBLE
                 else if (strcmp(move, "double") == 0) {
+                    if (pool - bet < 0) {
+                        puts("Not enough money to double ur bet");
+                        continue;
+                    }
                     pool -= bet;
                     if (split_flag == 1) {
                         puts("Choose on which hand u want to double (Enter 1 for the first, 2 for the second)");
