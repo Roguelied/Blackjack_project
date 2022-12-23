@@ -166,6 +166,7 @@ void deck_init(node **head) {
             if (j == 10) {
                 push(head, card);
                 push(head, card);
+                push(head, card);
             }
         }
     }
