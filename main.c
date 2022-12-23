@@ -204,7 +204,7 @@ int get_hand_total(node *head) {
 }
 
 
-// Can be optimized somehow (
+// Can be optimized somehow
 void show_cards(node *p1, node *p2, node *d, int split_flag) {
     if (split_flag == 1) {
         printf("Dealer hand: (%d) : ", get_hand_total(d)); print_list(d);
