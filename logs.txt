@@ -1,1 +1,1 @@
-Logs will be appear there when game is finished
+Logs will appear there when game is finished
