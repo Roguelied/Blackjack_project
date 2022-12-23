@@ -81,21 +81,15 @@ void index_push(node *head, card data, int index) {
     new_node -> card = data;
     new_node -> next = NULL;
 
-    if (index == 0) {
-        // Add new node
-        new_node -> next = head;
-        head = new_node;
-    } else {
-        // Find node at specified index
-        node *current = head;
-        for (int i = 0; i < index-1; i++) {
-            current = current -> next;
-        }
-
-        // Insert the new node after specified index
-        new_node -> next = current -> next;
-        current -> next = new_node;
+    // Find node at specified index
+    node *current = head;
+    for (int i = 0; i < index-1; i++) {
+        current = current -> next;
     }
+
+    // Insert the new node after specified index
+    new_node -> next = current -> next;
+    current -> next = new_node;
 }
 
 // 0 index is not working
