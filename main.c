@@ -5,7 +5,6 @@
 #include <ctype.h> //tolower func
 
 /*
-    pop_index(node, 0) not working help                                               Still issue
     Not only one game, need a while (for stop game) (offer a stop and exit casino)       Done
     Fix second hand > 21                                                                 Done
     Fix negative bets                                                                    Done
