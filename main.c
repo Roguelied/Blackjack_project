@@ -42,8 +42,6 @@ void delete_list(node** head);
 
 
 void push(node **head, card data) {
-    //
-
     // Create a new node
     node *new_node = malloc(sizeof(node));
     new_node -> card = data;
