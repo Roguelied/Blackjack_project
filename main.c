@@ -11,8 +11,9 @@
     Fix second hand > 21                                                                 Done
     Fix negative bets                                                                    Done
     Save logs to file:                                                                   Done
-    ACE IS 1/11
-    Fix bets
+    ACE IS 1/11                                                                          Done
+    All scanf Buffer Overflow issue fix                                                  Done
+    Fix bets                                                                             Done
         Now max str length = 9, u cant enter value more than 9 symbols in it
         then it checked for correct form of int value, and if first 9 symbols can be
         interpreted as int value it proceed
@@ -480,7 +481,7 @@ int main(void) {
                                 fflush(stdin);
                                 continue;
                             }
-                        }
+                        } //я устал помогите
                         fflush(stdin);
                         if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
 
