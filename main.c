@@ -3,12 +3,19 @@
 #include <time.h>
 #include <string.h>
 #include <ctype.h> //tolower func
+#include <conio.h>
+
 
 /*
     Not only one game, need a while (for stop game) (offer a stop and exit casino)       Done
     Fix second hand > 21                                                                 Done
     Fix negative bets                                                                    Done
     Save logs to file:                                                                   Done
+    ACE IS 1/11
+    Fix bets
+        Now max str length = 9, u cant enter value more than 9 symbols in it
+        then it checked for correct form of int value, and if first 9 symbols can be
+        interpreted as int value it proceed
 */
 
 
@@ -32,12 +39,13 @@ void shuffle(node *head);
 void deck_init(node **head);
 int get_hand_total(node *head);
 void print_list(node *head);
-void print_list_to_logs(node *head, FILE *game_logs);   
+void print_list_to_logs(node *head, FILE *game_logs);
 void to_lower(char *string);
 int len_list(node *head);
 void card_return(node **player, node **player_split, node **dealer, node **deck, int split_flag);
 void show_cards(node *p1, node *p2, node *d, int split_flag);
 void delete_list(node** head);
+int check(char *str);
 
 
 
@@ -140,7 +148,11 @@ void print_list(node *head) {
     node* current = head;
     // Each iteration change pointer, count all nodes from head to the NULL pointer
     while (current != NULL) {
-        printf("%d[%c] ", current -> card.num, current -> card.suit);
+        if (current->card.num == 1) {
+            printf("1/11[%c] ", current->card.suit);
+        } else {
+            printf("%d[%c] ", current->card.num, current->card.suit);
+        }
         current = current -> next;
     }
     printf("\n");
@@ -149,7 +161,11 @@ void print_list(node *head) {
 void print_list_to_logs(node *head, FILE *game_logs) {
     node* current = head;
     while (current != NULL) {
-        fprintf(game_logs, "%d[%d] ", current -> card.num, current -> card.suit);
+        if (current->card.num == 1) {
+            fprintf(game_logs, "1/11[%d] ", current->card.suit);
+        } else {
+            fprintf(game_logs, "%d[%d] ", current->card.num, current->card.suit);
+        }
         current = current -> next;
     }
     fprintf(game_logs, "\n");
@@ -159,7 +175,7 @@ void print_list_to_logs(node *head, FILE *game_logs) {
 void deck_init(node **head) {
     // 4 suits * 10 nums + (3 pics = 10) + 1 ace cards
     for (int i = 3; i < 7; i++) {
-        for (int j = 11; j > 1; j--) {
+        for (int j = 10; j > 0; j--) {
             card card;
             card.num = j; card.suit = i;
             push(head, card);
@@ -191,14 +207,19 @@ void to_lower(char *string) {
 
 
 int get_hand_total(node *head) {
+    int ace_flag = 0;
     node *current = head;
     int sum = 0;
     while (current != NULL) {
+        if (current -> card.num == 1) {
+            ace_flag = 1;
+        }
         sum += current -> card.num;
         current = current -> next;
     }
-
-    return sum;
+    if ((ace_flag == 1) && ((sum - 1 + 11) <= 21)) {
+        return (sum - 1 + 11);
+    } else { return sum; }
 }
 
 
@@ -270,21 +291,35 @@ void delete_list(node** head) {
     *head = NULL;
 }
 
+int check(char *str) {
+    for (int i = 0; i < strlen(str); i++) {
+        if (str[i] == ' ' || isdigit(str[i]) == 0) { return 0; }
+    }
+    return 1;
+}
+
+
 
 int main(void) {
 
     FILE *game_logs = fopen("logs.txt", "w");
     fprintf(game_logs, "Logs initialization\n\n");
-    int pool, bet = 0;
+    unsigned int pool = 0, bet = 0;
+    char pool_str[10], bet_str[10];
     puts("Enter your pool of money:");
     for (;;) {
-        scanf("%d", &pool);
+        scanf("%9s", pool_str);
+        if (check(pool_str) == 1) {
+            pool = atoi(pool_str);
+        }
         if (pool <= 0) {
-            printf("Invalid value, should be > 0\n");
+            printf("Invalid value, try again (min = 1, max = 999999999)\n");
+            fflush(stdin);
         } else {
             break;
         }
     }
+    printf("%d\n", pool);
     fflush(stdin);
 
     //Deck initialize, shuffle, print
@@ -311,31 +346,39 @@ int main(void) {
     DOUBLE              x2 bet, +1 card, player while break
     SURRENDER           game over (2 cards, bet/2)             */
 
-    char move[9], answer[3];
+    char move[9], answer[4];
     int split_flag = 0, total_games_value = 0, stop_flag = 0, wins_value = 0, loses_value = 0, pushes_value = 0;
     for (;;) {
+        fflush(stdin);
         puts("Want to play? Enter yes/no");
-        scanf("%s", &answer);
+        scanf("%3s", answer);
+        fflush(stdin);
         to_lower(answer);
         if (strcmp(answer, "yes") == 0) {
             if (bet == 0) {
                 if (pool == 0) {
-                    puts("U have no money, get the fuck out my casino!");
+                    puts("U have no money, - 10000000000000 social credit!");
                     exit(-100);
                 }
                 printf("Enter your bet (Should be < than your pool)\n");
                 for (;;) {
-                    scanf("%d", &bet);
+                    scanf("%9s", bet_str);
+                    fflush(stdin);
+                    if (check(bet_str) == 1) {
+                        bet = atoi(bet_str);
+                    } //printf("%d\n", bet);
                     if (bet > pool || bet <= 0) {
                         puts("Incorrect value, try again");
+                        fflush(stdin);
                         continue;
                     } else break;
                 }
+                fflush(stdin);
                 pool -= bet;
                 fprintf(game_logs, "POOL = %d\nBET = %d\n", pool, bet);
             }
             printf("Pool - %d\n", pool);
-            total_games_value++;
+            total_games_value++; stop_flag = 0;
             // +1 dealer card, +2 player card every game
             push(&hand_dealer, pop(&deck));
             push(&hand_player, pop(&deck));
@@ -349,19 +392,37 @@ int main(void) {
             show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
             for (;;) {
                 if (get_hand_total(hand_player) == 21) {
+                    bet *= 1.5;
+                    printf("Player got Blackjack, wins %d\n", bet);
+                    fprintf(game_logs, "BLACKJACK: PLAYER, Player wins %d\n\n");
+                    card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
+                    wins_value++;
                     break;
                 }
                 puts("Hit, split, double, surrender, stand?");
-                scanf("%s", move);
+                scanf("%9s", move);
+                fflush(stdin);
                 to_lower(move);
                 // HIT
                 if (strcmp(move, "hit") == 0) {
 
                     // If player have 2 hands case
                     if (split_flag == 1) {
-                        puts("Choose on which hand u want to hit (Enter 1 for the first, 2 for the second)");
+                        puts("Choose on which hand u want to hit (Enter 1 for the first, 2 for the second, either way u'll hit 1)");
                         int split_value = 0;
-                        scanf("%d", &split_value);
+                        char split_answer[1];
+                        for (;;) {
+                            scanf("%1s", split_answer);
+                            if (check(split_answer) == 1) {
+                                split_value = atoi(split_answer);
+                                break;
+                            } else {
+                                printf("Incorrect input, try again\n");
+                                fflush(stdin);
+                                continue;
+                            }
+                        }
+                        fflush(stdin);
                         if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
 
                         // Choose which hand
@@ -374,7 +435,7 @@ int main(void) {
                         fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
                         fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
                         fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
-                        fprintf(game_logs, "\n");
+                        fprintf(game_logs, "\n"); split_value = 1;
                         show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
 
                     } else {
@@ -406,9 +467,21 @@ int main(void) {
                     }
                     pool -= bet;
                     if (split_flag == 1) {
-                        puts("Choose on which hand u want to double (Enter 1 for the first, 2 for the second)");
+                        puts("Choose on which hand u want to double (Enter 1 for the first, 2 for the second, either way u'll hit first)");
                         int split_value = 0;
-                        scanf("%d", &split_value);
+                        char split_answer[1];
+                        for (;;) {
+                            scanf("%1s", split_answer);
+                            if (check(split_answer) == 1) {
+                                split_value = atoi(split_answer);
+                                break;
+                            } else {
+                                printf("Incorrect input, try again\n");
+                                fflush(stdin);
+                                continue;
+                            }
+                        }
+                        fflush(stdin);
                         if (split_value != 2 && split_value != 1) split_value = 1;  //Case if user enter incorrect value
 
                         bet *= 2;
@@ -419,7 +492,7 @@ int main(void) {
                             fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
                             fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
                             fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
-                            fprintf(game_logs, "\n");
+                            fprintf(game_logs, "\n"); split_value = 0;
                             break;
                         } else if (split_value == 2) {
                             push(&hand_player_split, pop(&deck));
@@ -427,7 +500,7 @@ int main(void) {
                             fprintf(game_logs, "Dealer hand (%d) : ", get_hand_total(hand_dealer)); print_list_to_logs(hand_dealer, game_logs);
                             fprintf(game_logs, "Player hand №1 (%d) : ", get_hand_total(hand_player)); print_list_to_logs(hand_player, game_logs);
                             fprintf(game_logs, "Player hand №2 (%d) : ", get_hand_total(hand_player_split)); print_list_to_logs(hand_player_split, game_logs);
-                            fprintf(game_logs, "\n");
+                            fprintf(game_logs, "\n"); split_value = 1;
                             break;
                         }
                         show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
@@ -479,7 +552,8 @@ int main(void) {
                     split_flag = 1;
                     show_cards(hand_player, hand_player_split, hand_dealer, split_flag);
                 } else {
-                    puts("wtf are u typing here, jesus, its blackjack we are dont printing tests here");
+                    puts("Incorrect input");
+                    continue;
                 }
 
 
@@ -488,7 +562,7 @@ int main(void) {
                 if ((split_flag == 0 && get_hand_total(hand_player) == 21) ||
                 (split_flag == 1 && (get_hand_total(hand_player) == 21 || get_hand_total(hand_player_split) == 21))) {
                     pool += bet * 2; bet *= 1.5; wins_value++;
-                    printf("Blackjack!, take yours %d", bet);
+                    printf("Blackjack! Take yours %d\n", bet);
                     fprintf(game_logs, "PLAYER BLACKJACK1: Player win %d\n\n", bet);
                     card_return(&hand_player, &hand_player_split, &hand_dealer, &deck, split_flag);
                     stop_flag = 1; bet = 0;
