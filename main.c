@@ -3,7 +3,6 @@
 #include <time.h>
 #include <string.h>
 #include <ctype.h> //tolower func
-#include <conio.h>
 
 
 /*
