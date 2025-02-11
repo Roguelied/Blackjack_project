@@ -1,4 +1,4 @@
 ### **Blackjack terminal game**
 ---
-##### Used languages: C / CMake
+##### C / CMake
 ##### Dec 26, 1 term, 2023
